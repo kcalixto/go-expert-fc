@@ -1,0 +1,8 @@
+goos: darwin
+goarch: amd64
+pkg: github.com/kcalixto/go-expert-fc/fastjson
+cpu: Intel(R) Core(TM) i5-8257U CPU @ 1.40GHz
+BenchmarkGetCoordinatesLenWithFastJSON-8       	      24	  52576529 ns/op
+BenchmarkGetCoordinatesLenWithEncodingJSON-8   	       8	 146340009 ns/op
+PASS
+ok  	github.com/kcalixto/go-expert-fc/fastjson	5.725s
