@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -11,15 +11,18 @@ import (
 )
 
 type Result struct {
-	source   string
-	response *http.Response
-	err      error
+	source        string
+	executionTime time.Duration
+	response      *http.Response
+	err           error
 }
 
 func main() {
 	cep := "01001000"
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	responseChan := make(chan Result)
 
 	go getViacep(ctx, cep, responseChan)
@@ -27,53 +30,54 @@ func main() {
 
 	mutex := &sync.Mutex{}
 
-	for {
-		select {
-		case result := <-responseChan:
-			mutex.Lock()
-			if result.err != nil || result.response == nil {
-				fmt.Printf("Erro ao buscar no %s\n", result.source)
-				mutex.Unlock()
-				continue
-			}
+	for result := range responseChan {
+		mutex.Lock()
+		if result.err != nil || result.response == nil {
+			fmt.Printf("Erro ao buscar no %s\n", result.source)
+			mutex.Unlock()
+			continue
+		}
 
-			var body map[string]interface{}
-			err := json.NewDecoder(result.response.Body).Decode(&body)
-			if err != nil {
-				fmt.Printf("Erro ao decodificar resposta do %s\n", result.source)
-				mutex.Unlock()
-				return
-			}
-			fmt.Printf("%s: %s\n", result.source, body)
-			cancel()
+		responseBytes, err := io.ReadAll(result.response.Body)
+		if err != nil {
+			fmt.Printf("Erro ao ler resposta do %s\n", result.source)
 			mutex.Unlock()
 			return
 		}
+
+		fmt.Printf("%s: {\n \tresponseBody: %s\n \texecutionTime: %dms\n \terr: %s\n }", result.source, string(responseBytes), (result.executionTime / time.Millisecond), result.err)
+		cancel()
+		mutex.Unlock()
+		return
 	}
 }
 
 func getViacep(ctx context.Context, cep string, responseChan chan Result) {
-	time.Sleep(randomMs())
+	time.Sleep(randomMs()) // simulates a random delay
+
+	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://viacep.com.br/ws/%s/json", cep), nil)
 	if err != nil {
-		responseChan <- Result{"viacep", nil, err}
+		responseChan <- Result{"viacep", time.Since(start), nil, err}
 		return
 	}
 	client := http.DefaultClient
 	resp, err := client.Do(req)
-	responseChan <- Result{"viacep", resp, err}
+	responseChan <- Result{"viacep", time.Since(start), resp, err}
 }
 
 func getBrasilCepAPI(ctx context.Context, cep string, responseChan chan Result) {
-	time.Sleep(randomMs())
+	time.Sleep(randomMs()) // simulates a random delay
+
+	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://brasilapi.com.br/api/cep/v1/%s", cep), nil)
 	if err != nil {
-		responseChan <- Result{"brasilapi", nil, err}
+		responseChan <- Result{"brasilapi", time.Since(start), nil, err}
 		return
 	}
 	client := http.DefaultClient
 	resp, err := client.Do(req)
-	responseChan <- Result{"brasilapi", resp, err}
+	responseChan <- Result{"brasilapi", time.Since(start), resp, err}
 }
 
 func randomMs() time.Duration {
