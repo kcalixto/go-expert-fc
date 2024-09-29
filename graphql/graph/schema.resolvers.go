@@ -27,6 +27,19 @@ func (r *categoryResolver) Courses(ctx context.Context, obj *model.Category) ([]
 	return coursesModel, nil
 }
 
+// Category is the resolver for the category field.
+func (r *courseResolver) Category(ctx context.Context, obj *model.Course) (*model.Category, error) {
+	category, err := r.CategoryDB.FindByCourseID(obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Category{
+		ID:          category.ID,
+		Name:        category.Name,
+		Description: &category.Description,
+	}, nil
+}
+
 // CreateCategory is the resolver for the createCategory field.
 func (r *mutationResolver) CreateCategory(ctx context.Context, input model.NewCategory) (*model.Category, error) {
 	category, err := r.CategoryDB.Create(input.Name, *input.Description)
@@ -50,7 +63,6 @@ func (r *mutationResolver) CreateCourse(ctx context.Context, input model.NewCour
 		ID:          course.ID,
 		Name:        course.Name,
 		Description: &course.Description,
-		// Category:    &model.Category{ID: course.CategoryID},
 	}, nil
 }
 
@@ -83,7 +95,6 @@ func (r *queryResolver) Courses(ctx context.Context) ([]*model.Course, error) {
 			ID:          category.ID,
 			Name:        category.Name,
 			Description: &category.Description,
-			// Category:    &model.Category{ID: category.CategoryID},
 		})
 	}
 	return coursesModel, nil
@@ -92,6 +103,9 @@ func (r *queryResolver) Courses(ctx context.Context) ([]*model.Course, error) {
 // Category returns CategoryResolver implementation.
 func (r *Resolver) Category() CategoryResolver { return &categoryResolver{r} }
 
+// Course returns CourseResolver implementation.
+func (r *Resolver) Course() CourseResolver { return &courseResolver{r} }
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
@@ -99,5 +113,6 @@ func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type categoryResolver struct{ *Resolver }
+type courseResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
