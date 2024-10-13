@@ -15,3 +15,5 @@ brew install evans
 ```
 evans -r repl
 ```
+
+ctrl+D pra sair do stream
