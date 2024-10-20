@@ -1,0 +1,11 @@
+FROM golang:1.23.0 AS builder
+WORKDIR /app
+COPY . .
+# -w flag removes debugging information from the binary
+# -s flag removes symbol table and debug information
+RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "-s -w" -o server .
+
+# lowest possible image size
+FROM scratch
+COPY --from=builder /app/server /app/server
+CMD ["/app/server"]
