@@ -18,6 +18,12 @@ func main() {
 }
 
 func getTemperature(w http.ResponseWriter, r *http.Request) {
+	// review warning
+	if os.Getenv("WEATHER_API_KEY") == "" {
+		w.Write([]byte("Conforme solicitado, a aplicação possui um endpoint no GCP para ser executada e não deve rodar localmente, uma vez que a API de clima requer uma chave de acesso que não deve ser exposta. Favor acessar o endpoint descrito no readme.md: https://cloudrun-goexpert-843349195325.southamerica-east1.run.app/temperature?cep=01001000"))
+		return
+	}
+
 	cep := r.URL.Query().Get("cep")
 	req := &Request{CEP: cep}
 	if err := req.Validate(); err != nil {
