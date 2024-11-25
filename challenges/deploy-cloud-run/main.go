@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -18,12 +17,6 @@ func main() {
 }
 
 func getTemperature(w http.ResponseWriter, r *http.Request) {
-	// review warning
-	if os.Getenv("WEATHER_API_KEY") == "" {
-		w.Write([]byte("Conforme solicitado, a aplicação possui um endpoint no GCP para ser executada e não deve rodar localmente, uma vez que a API de clima requer uma chave de acesso que não deve ser exposta. Favor acessar o endpoint descrito no readme.md: https://cloudrun-goexpert-843349195325.southamerica-east1.run.app/temperature?cep=01001000"))
-		return
-	}
-
 	cep := r.URL.Query().Get("cep")
 	req := &Request{CEP: cep}
 	if err := req.Validate(); err != nil {
@@ -52,9 +45,10 @@ func getTemperature(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := &Response{
-		Celsius:    weatherApiResponse.Current.TempC,
-		Fahrenheit: weatherApiResponse.Current.TempF,
-		Kelvin:     weatherApiResponse.Current.TempC + 273.15,
+		DescricaoDesafio: `Objetivo: Desenvolver um sistema em Go que receba um CEP, identifica a cidade e retorna o clima atual (temperatura em graus celsius, fahrenheit e kelvin). Esse sistema deverá ser publicado no Google Cloud Run: https://cloudrun-goexpert-843349195325.southamerica-east1.run.app/temperature?cep=01001000`,
+		Celsius:          weatherApiResponse.Current.TempC,
+		Fahrenheit:       weatherApiResponse.Current.TempF,
+		Kelvin:           weatherApiResponse.Current.TempC + 273.15,
 	}
 
 	responseBodyBytes, err := json.Marshal(res)
@@ -80,9 +74,10 @@ func (r *Request) Validate() error {
 }
 
 type Response struct {
-	Celsius    float64 `json:"temp_C"`
-	Fahrenheit float64 `json:"temp_F"`
-	Kelvin     float64 `json:"temp_K"`
+	DescricaoDesafio string  `json:"descricao_desafio"`
+	Celsius          float64 `json:"temp_C"`
+	Fahrenheit       float64 `json:"temp_F"`
+	Kelvin           float64 `json:"temp_K"`
 }
 
 type WeatherApiResponse struct {
@@ -144,7 +139,7 @@ func callWeatherApi(addr *ViaCEPApiResponse) (*WeatherApiResponse, error) {
 
 	query := req.URL.Query()
 	query.Set("q", addr.Localidade)
-	query.Set("key", os.Getenv("WEATHER_API_KEY"))
+	query.Set("key", "c25068cc19714f8182d200448241611")
 	req.URL.RawQuery = query.Encode()
 
 	println(req.URL.String())
