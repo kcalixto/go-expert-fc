@@ -2,10 +2,14 @@ package auction_usecase
 
 import (
 	"context"
+	"fmt"
+	"fullcycle-auction_go/configuration/logger"
 	"fullcycle-auction_go/internal/entity/auction_entity"
 	"fullcycle-auction_go/internal/entity/bid_entity"
 	"fullcycle-auction_go/internal/internal_error"
 	"fullcycle-auction_go/internal/usecase/bid_usecase"
+	"os"
+	"sync"
 	"time"
 )
 
@@ -34,10 +38,17 @@ type WinningInfoOutputDTO struct {
 func NewAuctionUseCase(
 	auctionRepositoryInterface auction_entity.AuctionRepositoryInterface,
 	bidRepositoryInterface bid_entity.BidEntityRepository) AuctionUseCaseInterface {
-	return &AuctionUseCase{
+	auctionUseCase := &AuctionUseCase{
 		auctionRepositoryInterface: auctionRepositoryInterface,
 		bidRepositoryInterface:     bidRepositoryInterface,
+		auctionExpiration:          getAuctionExpiration(),
+		auctionMapMutex:            sync.Mutex{},
+		auctionMap:                 make(map[string]time.Time),
 	}
+
+	auctionUseCase.triggerAuctionExpirationRoutine(context.Background())
+
+	return auctionUseCase
 }
 
 type AuctionUseCaseInterface interface {
@@ -64,6 +75,44 @@ type AuctionStatus int64
 type AuctionUseCase struct {
 	auctionRepositoryInterface auction_entity.AuctionRepositoryInterface
 	bidRepositoryInterface     bid_entity.BidEntityRepository
+
+	// add
+	auctionExpiration time.Duration
+	auctionMapMutex   sync.Mutex
+	auctionMap        map[string]time.Time
+}
+
+func (au *AuctionUseCase) triggerAuctionExpirationRoutine(ctx context.Context) {
+	logger.Info(fmt.Sprintf("au.auctionExpiration: %s", au.auctionExpiration.String()))
+	ticker := time.NewTicker(au.auctionExpiration)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				au.auctionMapMutex.Lock()
+				for auctionId, expiration := range au.auctionMap {
+					logger.Info(fmt.Sprintf("Checking auction expiration: %s - %s", auctionId, expiration.String()))
+					if time.Now().After(expiration) {
+						au.auctionRepositoryInterface.UpdateAuctionStatus(
+							ctx, auctionId, auction_entity.Completed)
+					}
+				}
+				au.auctionMapMutex.Unlock()
+			}
+		}
+	}()
+}
+
+func getAuctionExpiration() time.Duration {
+	auctionExpiration := os.Getenv("AUCTION_EXPIRATION")
+	duration, err := time.ParseDuration(auctionExpiration)
+	if err != nil {
+		return time.Hour * 24 // fallback
+	}
+
+	return duration
 }
 
 func (au *AuctionUseCase) CreateAuction(
@@ -82,6 +131,10 @@ func (au *AuctionUseCase) CreateAuction(
 		ctx, auction); err != nil {
 		return err
 	}
+
+	au.auctionMapMutex.Lock()
+	au.auctionMap[auction.Id] = time.Now().Add(au.auctionExpiration)
+	au.auctionMapMutex.Unlock()
 
 	return nil
 }
