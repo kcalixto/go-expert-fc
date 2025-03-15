@@ -43,6 +43,7 @@ func (b *Bid) Validate() *internal_error.InternalError {
 	return nil
 }
 
+//go:generate mockery --name BidEntityRepository --output ./mocks
 type BidEntityRepository interface {
 	CreateBid(
 		ctx context.Context,

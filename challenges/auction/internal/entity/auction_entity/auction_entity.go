@@ -63,6 +63,7 @@ const (
 	Refurbished
 )
 
+//go:generate mockery --name AuctionRepositoryInterface --output ./mocks
 type AuctionRepositoryInterface interface {
 	CreateAuction(
 		ctx context.Context,

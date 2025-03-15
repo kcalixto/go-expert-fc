@@ -36,8 +36,10 @@ type WinningInfoOutputDTO struct {
 }
 
 func NewAuctionUseCase(
+	ctx context.Context,
 	auctionRepositoryInterface auction_entity.AuctionRepositoryInterface,
-	bidRepositoryInterface bid_entity.BidEntityRepository) AuctionUseCaseInterface {
+	bidRepositoryInterface bid_entity.BidEntityRepository,
+) AuctionUseCaseInterface {
 	auctionUseCase := &AuctionUseCase{
 		auctionRepositoryInterface: auctionRepositoryInterface,
 		bidRepositoryInterface:     bidRepositoryInterface,
@@ -46,7 +48,7 @@ func NewAuctionUseCase(
 		auctionMap:                 make(map[string]time.Time),
 	}
 
-	auctionUseCase.triggerAuctionExpirationRoutine(context.Background())
+	auctionUseCase.triggerAuctionExpirationRoutine(ctx)
 
 	return auctionUseCase
 }
@@ -92,6 +94,7 @@ func (au *AuctionUseCase) triggerAuctionExpirationRoutine(ctx context.Context) {
 				return
 			case <-ticker.C:
 				au.auctionMapMutex.Lock()
+				fmt.Printf("auctions: %v\n", au.auctionMap)
 				for auctionId, expiration := range au.auctionMap {
 					logger.Info(fmt.Sprintf("Checking auction expiration: %s - %s", auctionId, expiration.String()))
 					if time.Now().After(expiration) {

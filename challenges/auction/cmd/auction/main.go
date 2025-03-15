@@ -34,7 +34,7 @@ func main() {
 
 	router := gin.Default()
 
-	userController, bidController, auctionsController := initDependencies(databaseConnection)
+	userController, bidController, auctionsController := initDependencies(ctx, databaseConnection)
 
 	router.GET("/auction", auctionsController.FindAuctions)
 	router.GET("/auction/:auctionId", auctionsController.FindAuctionById)
@@ -47,7 +47,7 @@ func main() {
 	router.Run(":8080")
 }
 
-func initDependencies(database *mongo.Database) (
+func initDependencies(ctx context.Context, database *mongo.Database) (
 	userController *user_controller.UserController,
 	bidController *bid_controller.BidController,
 	auctionController *auction_controller.AuctionController) {
@@ -56,10 +56,14 @@ func initDependencies(database *mongo.Database) (
 	bidRepository := bid.NewBidRepository(database, auctionRepository)
 	userRepository := user.NewUserRepository(database)
 
-	userController = user_controller.NewUserController(
-		user_usecase.NewUserUseCase(userRepository))
+	userController = user_controller.NewUserController(user_usecase.NewUserUseCase(userRepository))
 	auctionController = auction_controller.NewAuctionController(
-		auction_usecase.NewAuctionUseCase(auctionRepository, bidRepository))
+		auction_usecase.NewAuctionUseCase(
+			ctx,
+			auctionRepository,
+			bidRepository,
+		),
+	)
 	bidController = bid_controller.NewBidController(bid_usecase.NewBidUseCase(bidRepository))
 
 	return
